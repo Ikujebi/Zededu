@@ -5,10 +5,22 @@ import jwt from "jsonwebtoken";
 import pool from "../db";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret";
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || "your_jwt_refresh_secret";
 
-// Temporary in-memory blacklist (better to store in Redis for production)
-let tokenBlacklist: string[] = [];
+let refreshTokens: string[] = []; // In production → store in Redis or DB
 
+// Helper functions
+const generateAccessToken = (payload: object) => {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: "15m" }); // short-lived
+};
+
+const generateRefreshToken = (payload: object) => {
+  const token = jwt.sign(payload, JWT_REFRESH_SECRET, { expiresIn: "7d" });
+  refreshTokens.push(token);
+  return token;
+};
+
+// REGISTER
 export const registerUser = async (req: Request, res: Response) => {
   try {
     const { name, email, password, role, school_id } = req.body;
@@ -33,6 +45,7 @@ export const registerUser = async (req: Request, res: Response) => {
   }
 };
 
+// LOGIN
 export const loginUser = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
@@ -47,19 +60,50 @@ export const loginUser = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Invalid email or password" });
     }
 
-    const token = jwt.sign(
-      { id: user.rows[0].id, role: user.rows[0].role },
-      JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    const payload = { id: user.rows[0].id, role: user.rows[0].role };
+    const accessToken = generateAccessToken(payload);
+    const refreshToken = generateRefreshToken(payload);
 
-    res.json({ message: "Login successful", token });
+    // Store refresh token in HttpOnly cookie
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    res.json({ message: "Login successful", accessToken });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 };
 
+// REFRESH TOKEN
+export const refreshAccessToken = (req: Request, res: Response) => {
+  const refreshToken = req.cookies.refreshToken;
+  if (!refreshToken) return res.status(401).json({ message: "Refresh token required" });
+  if (!refreshTokens.includes(refreshToken)) {
+    return res.status(403).json({ message: "Invalid refresh token" });
+  }
+
+  jwt.verify(refreshToken, JWT_REFRESH_SECRET, (err: any, user: any) => {
+    if (err) return res.status(403).json({ message: "Invalid refresh token" });
+
+    const newAccessToken = generateAccessToken({ id: user.id, role: user.role });
+    res.json({ accessToken: newAccessToken });
+  });
+};
+
+// LOGOUT
+export const logoutUser = (req: Request, res: Response) => {
+  const refreshToken = req.cookies.refreshToken;
+  refreshTokens = refreshTokens.filter((token) => token !== refreshToken);
+  res.clearCookie("refreshToken");
+  res.json({ message: "Logged out successfully" });
+};
+
+// RESET PASSWORD
 export const resetPassword = async (req: Request, res: Response) => {
   try {
     const { email, newPassword } = req.body;
@@ -77,24 +121,4 @@ export const resetPassword = async (req: Request, res: Response) => {
     console.error(err);
     res.status(500).json({ message: "Server error" });
   }
-};
-
-// Logout controller
-export const logoutUser = (req: Request, res: Response) => {
-  const token = req.headers.authorization?.split(" ")[1];
-  if (!token) {
-    return res.status(400).json({ message: "Token is required" });
-  }
-
-  tokenBlacklist.push(token);
-  res.json({ message: "Logged out successfully" });
-};
-
-// Middleware to block blacklisted tokens
-export const checkBlacklist = (req: Request, res: Response, next: NextFunction) => {
-  const token = req.headers.authorization?.split(" ")[1];
-  if (token && tokenBlacklist.includes(token)) {
-    return res.status(401).json({ message: "Token is invalid or expired" });
-  }
-  next();
 };
