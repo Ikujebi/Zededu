@@ -13,15 +13,23 @@ const createTables = async () => {
       );
     `);
 
-    // Create users table
+    // Create users table with auth-related columns
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         name VARCHAR(100) NOT NULL,
         email VARCHAR(100) UNIQUE NOT NULL,
-        password TEXT NOT NULL,
+        password VARCHAR(255) NOT NULL,
         role VARCHAR(20) NOT NULL CHECK (role IN ('super_admin', 'school_admin', 'teacher', 'student', 'parent')),
         school_id INTEGER REFERENCES schools(id) ON DELETE CASCADE,
+        
+        -- Auth-related fields
+        email_verified BOOLEAN DEFAULT false,
+        verification_token TEXT,
+        last_login TIMESTAMP,
+        reset_token TEXT,
+        reset_token_expiry TIMESTAMP,
+
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
