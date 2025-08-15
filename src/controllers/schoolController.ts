@@ -131,3 +131,42 @@ export const approveSchool = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+export const updateSchoolSettings = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { term_dates, fees, logo_url } = req.body;
+
+    // Authorization: Only super_admin or that school's admin can update
+    if (!req.user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    if (
+      req.user.role !== "super_admin" &&
+      !(req.user.role === "school_admin" && req.user.school_id === parseInt(id))
+    ) {
+      return res.status(403).json({ message: "Not authorized to update this school's settings" });
+    }
+
+    // Update the settings
+    const result = await pool.query(
+      `UPDATE schools 
+       SET term_dates = $1, fees = $2, logo_url = $3, updated_at = NOW()
+       WHERE id = $4 
+       RETURNING *`,
+      [term_dates, fees, logo_url, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "School not found" });
+    }
+
+    res.json({
+      message: "School settings updated successfully",
+      school: result.rows[0],
+    });
+  } catch (error) {
+    console.error("Error updating school settings:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};

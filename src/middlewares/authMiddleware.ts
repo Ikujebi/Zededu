@@ -7,7 +7,7 @@ export const authenticateUser = (req: Request, res: Response, next: NextFunction
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET as string);
-    (req as any).user = decoded;
+    (req as any).user = decoded; // decoded will include school_id if you put it in the token
     next();
   } catch {
     return res.status(403).json({ message: "Invalid token" });
@@ -24,6 +24,12 @@ export const authorizeRoles = (...roles: string[]) => {
   };
 };
 
+// ✅ Added school_id here
 export interface AuthRequest extends Request {
-  user?: { id: string; role?: string; email?: string };
+  user?: { 
+    id: string; 
+    role?: string; 
+    email?: string; 
+    school_id?: number; // or string, match your DB type
+  };
 }

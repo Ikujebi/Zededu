@@ -22,7 +22,11 @@ const generateRefreshToken = (payload: object) => {
 export const loginUser = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
-    const userRes = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
+    const userRes = await pool.query(
+      "SELECT id, role, school_id, name, email, password FROM users WHERE email = $1",
+      [email]
+    );
+
     if (userRes.rows.length === 0) {
       return res.status(400).json({ message: "Invalid email or password" });
     }
@@ -31,7 +35,13 @@ export const loginUser = async (req: Request, res: Response) => {
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) return res.status(400).json({ message: "Invalid email or password" });
 
-    const payload = { id: user.id, role: user.role };
+    // ✅ Include school_id in the token payload
+    const payload = { 
+      id: user.id, 
+      role: user.role, 
+      school_id: user.school_id 
+    };
+
     const accessToken = generateAccessToken(payload);
     const refreshToken = generateRefreshToken(payload);
 
@@ -56,7 +66,15 @@ export const loginUser = async (req: Request, res: Response) => {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    res.json({ message: "Login successful", accessToken });
+    res.json({ 
+      message: "Login successful", 
+      accessToken,
+      user: {
+        id: user.id,
+        role: user.role,
+        school_id: user.school_id
+      }
+    });
   } catch (err) {
     console.error("loginUser:", err);
     res.status(500).json({ message: "Server error" });
