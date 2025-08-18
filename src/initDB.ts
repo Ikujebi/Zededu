@@ -37,6 +37,48 @@ const createTables = async () => {
       );
     `);
 
+    // Create classes table
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS classes (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL, -- e.g. "Primary 1", "Grade 10"
+    school_id INTEGER REFERENCES schools(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
+// Create subjects table
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS subjects (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL, -- e.g. "Mathematics"
+    school_id INTEGER REFERENCES schools(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
+// Create class_subjects table (many-to-many)
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS class_subjects (
+    id SERIAL PRIMARY KEY,
+    class_id INTEGER REFERENCES classes(id) ON DELETE CASCADE,
+    subject_id INTEGER REFERENCES subjects(id) ON DELETE CASCADE,
+    UNIQUE(class_id, subject_id)
+  );
+`);
+
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS attendance (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    date DATE NOT NULL DEFAULT CURRENT_DATE,
+    status VARCHAR(20) NOT NULL CHECK (status IN ('present', 'absent', 'late', 'excused')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, date) -- Prevent duplicate attendance for the same day
+  );
+`);
+
+
     console.log("✅ Tables created successfully");
   } catch (err) {
     console.error("❌ Error creating tables:", err);

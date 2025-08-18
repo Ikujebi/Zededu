@@ -7,6 +7,8 @@ import teacherRoutes from "./routes/teacherRoutes";
 import parentRoutes from "./routes/parentRoutes";
 import paymentRoutes from "./routes/paymentRoutes";
 import authRoutes from "./routes/authRoutes";
+import classRoutes from "./routes/classRoutes";
+import subjectRoutes from "./routes/subjectRoutes"
 
 
 dotenv.config();
@@ -22,6 +24,8 @@ app.use("/teachers", teacherRoutes);
 app.use("/parents", parentRoutes);
 app.use("/payments", paymentRoutes);
 app.use("/auth", authRoutes);
+app.use("/classes", classRoutes);
+app.use("/subjects", subjectRoutes);
 
 app.get("/", async (_req, res) => {
   try {

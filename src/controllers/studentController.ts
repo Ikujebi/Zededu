@@ -1,10 +1,10 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 import { StudentModel } from "../models/studentModel";
 import pool from "../db"; 
-
+import { AuthRequest } from "../middlewares/authMiddleware";
 
 // CREATE
-export const createStudent = async (req: Request, res: Response) => {
+export const createStudent = async (req: AuthRequest, res: Response) => {
   const { name, email, school_id, class_name } = req.body;
 
   try {
@@ -17,54 +17,76 @@ export const createStudent = async (req: Request, res: Response) => {
 };
 
 // READ - All
-export const getStudents = async (_req: Request, res: Response) => {
+export const getStudents = async (req: AuthRequest, res: Response) => {
   try {
-    const students = await StudentModel.getAll();
-    res.json(students);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Could not fetch students" });
-  }
-};
+    const { classId, schoolId, status, name } = req.query;
 
-// READ - One
-export const getStudentById = async (req: Request, res: Response) => {
-    try {
-    const { class_name, school_id, status } = req.query;
-
-    let query = `SELECT * FROM students WHERE 1=1`;
+    let query = "SELECT * FROM students WHERE 1=1";
     const values: any[] = [];
-    let idx = 1;
 
-    // If the user is a school admin, force their school_id
-    let effectiveSchoolId = school_id;
+    if (classId) {
+      values.push(classId);
+      query += ` AND class_id = $${values.length}`;
+    }
+
+    // If school admin, force school_id from token
+    let effectiveSchoolId = schoolId;
     if (req.user?.role === "school_admin") {
       effectiveSchoolId = String(req.user.school_id);
     }
 
     if (effectiveSchoolId) {
-      query += ` AND school_id = $${idx++}`;
       values.push(effectiveSchoolId);
+      query += ` AND school_id = $${values.length}`;
     }
-    if (class_name) {
-      query += ` AND class_name = $${idx++}`;
-      values.push(class_name);
-    }
+
     if (status) {
-      query += ` AND status = $${idx++}`;
       values.push(status);
+      query += ` AND status = $${values.length}`;
+    }
+
+    if (name) {
+      values.push(`%${name}%`);
+      query += ` AND (first_name ILIKE $${values.length} OR last_name ILIKE $${values.length})`;
     }
 
     const result = await pool.query(query, values);
     res.json(result.rows);
   } catch (err) {
+    console.error("Error fetching students", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// READ - One (force school_id if admin)
+export const getStudentById = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    let query = `SELECT * FROM students WHERE id = $1`;
+    const values: any[] = [id];
+
+    // Ensure school admin only fetches from their school
+    if (req.user?.role === "school_admin") {
+      query += " AND school_id = $2";
+      values.push(req.user.school_id);
+    }
+
+    const result = await pool.query(query, values);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Student not found" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Could not fetch students" });
+    res.status(500).json({ error: "Could not fetch student" });
   }
 };
 
 // UPDATE
-export const updateStudent = async (req: Request, res: Response) => {
+export const updateStudent = async (req: AuthRequest, res: Response) => {
   const { name, email, school_id, class_name } = req.body;
 
   try {
@@ -87,7 +109,7 @@ export const updateStudent = async (req: Request, res: Response) => {
 };
 
 // DELETE
-export const deleteStudent = async (req: Request, res: Response) => {
+export const deleteStudent = async (req: AuthRequest, res: Response) => {
   try {
     const deleted = await StudentModel.delete(Number(req.params.id));
     if (!deleted) {
