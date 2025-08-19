@@ -38,7 +38,7 @@ const createTables = async () => {
     `);
 
     // Create classes table
-await pool.query(`
+    await pool.query(`
   CREATE TABLE IF NOT EXISTS classes (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL, -- e.g. "Primary 1", "Grade 10"
@@ -47,8 +47,8 @@ await pool.query(`
   );
 `);
 
-// Create subjects table
-await pool.query(`
+    // Create subjects table
+    await pool.query(`
   CREATE TABLE IF NOT EXISTS subjects (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL, -- e.g. "Mathematics"
@@ -57,8 +57,8 @@ await pool.query(`
   );
 `);
 
-// Create class_subjects table (many-to-many)
-await pool.query(`
+    // Create class_subjects table (many-to-many)
+    await pool.query(`
   CREATE TABLE IF NOT EXISTS class_subjects (
     id SERIAL PRIMARY KEY,
     class_id INTEGER REFERENCES classes(id) ON DELETE CASCADE,
@@ -67,7 +67,7 @@ await pool.query(`
   );
 `);
 
-await pool.query(`
+    await pool.query(`
   CREATE TABLE IF NOT EXISTS attendance (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -78,6 +78,150 @@ await pool.query(`
   );
 `);
 
+    await pool.query(`
+  CREATE TABLE IF NOT EXISTS assignments (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    due_date TIMESTAMP NOT NULL,
+    class_id INTEGER REFERENCES classes(id) ON DELETE CASCADE,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
+    // Create submissions table
+    await pool.query(`
+  CREATE TABLE IF NOT EXISTS submissions (
+    id SERIAL PRIMARY KEY,
+    assignment_id INTEGER REFERENCES assignments(id) ON DELETE CASCADE,
+    student_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    graded BOOLEAN DEFAULT false,
+    grade VARCHAR(20),
+    UNIQUE(assignment_id, student_id) -- One submission per student per assignment
+  );
+`);
+
+    // FEES TABLE
+    // =========================
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS fees (
+        id SERIAL PRIMARY KEY,
+        school_id INT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+        class_id INT REFERENCES classes(id) ON DELETE SET NULL,
+        title VARCHAR(255) NOT NULL,
+        description TEXT,
+        amount NUMERIC(12, 2) NOT NULL,
+        due_date DATE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // =========================
+    // PAYMENTS TABLE
+    // =========================
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS payments (
+        id SERIAL PRIMARY KEY,
+        school_id INT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+        student_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        fee_id INT REFERENCES fees(id) ON DELETE SET NULL,
+        amount NUMERIC(12, 2) NOT NULL,
+        status VARCHAR(50) DEFAULT 'pending', -- pending, completed, failed, refunded
+        method VARCHAR(50),
+        reference VARCHAR(255) UNIQUE,
+        receipt_url TEXT,
+        paid_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // =========================
+    // INVOICES TABLE
+    // =========================
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS invoices (
+        id SERIAL PRIMARY KEY,
+        school_id INT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+        student_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        total_amount NUMERIC(12, 2) NOT NULL,
+        status VARCHAR(50) DEFAULT 'unpaid', -- unpaid, partial, paid
+        due_date DATE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // =========================
+    // INVOICE ITEMS TABLE
+    // =========================
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS invoice_items (
+        id SERIAL PRIMARY KEY,
+        invoice_id INT NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+        fee_id INT REFERENCES fees(id) ON DELETE SET NULL,
+        description VARCHAR(255),
+        amount NUMERIC(12, 2) NOT NULL
+      );
+    `);
+    // =========================
+    // RECIEPT ITEMS TABLE
+    // =========================
+    await pool.query(`
+    CREATE TABLE receipts (
+    id SERIAL PRIMARY KEY,
+    receipt_number VARCHAR(50) UNIQUE NOT NULL,   -- sequential receipt number
+    student_id INT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    invoice_id INT NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+    payment_id INT NOT NULL REFERENCES payments(id) ON DELETE CASCADE,
+    amount_paid DECIMAL(10,2) NOT NULL,
+    payment_method VARCHAR(50),                   -- cash, transfer, card
+    issued_at TIMESTAMP DEFAULT NOW(),            -- when receipt was generated
+    created_by INT REFERENCES users(id),          -- staff who issued it
+    notes TEXT                                    -- optional remarks
+);
+
+
+    `);
+
+     // =========================
+    // EXAMS TABLE
+    // =========================
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS exams (
+        id SERIAL PRIMARY KEY,
+        school_id INT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+        class_id INT REFERENCES classes(id) ON DELETE CASCADE,
+        subject_id INT REFERENCES subjects(id) ON DELETE CASCADE,
+        title VARCHAR(255) NOT NULL,
+        description TEXT,
+        exam_date DATE NOT NULL,
+        created_by INT REFERENCES users(id) ON DELETE SET NULL, -- teacher/admin who created
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // =========================
+    // EXAM RESULTS TABLE
+    // =========================
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS exam_results (
+        id SERIAL PRIMARY KEY,
+        exam_id INT NOT NULL REFERENCES exams(id) ON DELETE CASCADE,
+        student_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        score NUMERIC(5,2) NOT NULL,
+        grade VARCHAR(10),
+        remarks TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(exam_id, student_id) -- prevent duplicate results
+      );
+    `);
 
     console.log("✅ Tables created successfully");
   } catch (err) {

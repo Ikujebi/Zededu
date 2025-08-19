@@ -1,79 +1,114 @@
-// src/controllers/paymentController.ts
-import { Request, Response } from "express";
+import { Response } from "express";
 import { PaymentModel } from "../models/paymentModel";
+import { AuthRequest } from "../middlewares/authMiddleware";
 
-// CREATE
-export const createPayment = async (req: Request, res: Response) => {
-  const { student_id, amount, payment_date, method, status } = req.body;
-
+// -------------------- RECORD PAYMENT --------------------
+export const recordPayment = async (req: AuthRequest, res: Response) => {
   try {
-    const payment = await PaymentModel.create(student_id, amount, payment_date, method, status);
+    const { student_id, fee_id, amount, method, status, reference } = req.body;
+
+    // Only admins can record payments manually
+    if (req.user?.role !== "admin") {
+      return res.status(403).json({ message: "Only admins can record payments" });
+    }
+
+    const payment = await PaymentModel.recordPayment(
+      student_id,
+      fee_id,
+      amount,
+      method,
+      status,
+      reference
+    );
     res.status(201).json(payment);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Could not create payment" });
+    console.error("recordPayment:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-// READ - All
-export const getPayments = async (_req: Request, res: Response) => {
+// -------------------- LIST PAYMENTS --------------------
+export const listPayments = async (req: AuthRequest, res: Response) => {
   try {
-    const payments = await PaymentModel.getAll();
-    res.json(payments);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Could not fetch payments" });
-  }
-};
-
-// READ - One
-export const getPaymentById = async (req: Request, res: Response) => {
-  try {
-    const payment = await PaymentModel.getById(Number(req.params.id));
-    if (!payment) {
-      return res.status(404).json({ error: "Payment not found" });
+    if (req.user?.role === "admin") {
+      // Admin → all payments
+      const payments = await PaymentModel.getPayments();
+      return res.json(payments);
     }
+
+    if (req.user?.role === "student" || req.user?.role === "parent") {
+      // Student/Parent → only their own
+      const payments = await PaymentModel.getPaymentsByStudent(req.user.student_id);
+      return res.json(payments);
+    }
+
+    res.status(403).json({ message: "Unauthorized" });
+  } catch (err) {
+    console.error("listPayments:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// -------------------- PAYMENT DETAILS --------------------
+export const getPaymentDetails = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const payment = await PaymentModel.getPaymentById(Number(id));
+    if (!payment) return res.status(404).json({ message: "Payment not found" });
+
+    // Restrict access: students/parents can only see their own payment
+    if (req.user?.role !== "admin" && payment.student_id !== req.user?.student_id) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+
     res.json(payment);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Could not fetch payment" });
+    console.error("getPaymentDetails:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-// UPDATE
-export const updatePayment = async (req: Request, res: Response) => {
-  const { student_id, amount, payment_date, method, status } = req.body;
-
+// -------------------- STUDENT PAYMENTS --------------------
+export const getStudentPayments = async (req: AuthRequest, res: Response) => {
   try {
-    const updatedPayment = await PaymentModel.update(
-      Number(req.params.id),
-      student_id,
-      amount,
-      payment_date,
-      method,
-      status
-    );
+    const { id } = req.params;
 
-    if (!updatedPayment) {
-      return res.status(404).json({ error: "Payment not found" });
+    // Admin can query any student
+    if (req.user?.role === "admin") {
+      const payments = await PaymentModel.getPaymentsByStudent(Number(id));
+      return res.json(payments);
     }
-    res.json(updatedPayment);
+
+    // Student/Parent can only fetch their own
+    if (req.user?.role === "student" || req.user?.role === "parent") {
+      if (Number(id) !== req.user?.student_id) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+      const payments = await PaymentModel.getPaymentsByStudent(Number(id));
+      return res.json(payments);
+    }
+
+    res.status(403).json({ message: "Unauthorized" });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Could not update payment" });
+    console.error("getStudentPayments:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-// DELETE
-export const deletePayment = async (req: Request, res: Response) => {
+// -------------------- VERIFY PAYMENT --------------------
+export const verifyPayment = async (req: AuthRequest, res: Response) => {
   try {
-    const deleted = await PaymentModel.delete(Number(req.params.id));
-    if (!deleted) {
-      return res.status(404).json({ error: "Payment not found" });
+    const { reference } = req.body;
+    const payment = await PaymentModel.verifyPayment(reference);
+
+    // Restrict access
+    if (req.user?.role !== "admin" && payment.student_id !== req.user?.student_id) {
+      return res.status(403).json({ message: "Unauthorized" });
     }
-    res.json({ message: "Payment deleted successfully" });
+
+    res.json(payment);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Could not delete payment" });
+    console.error("verifyPayment:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };

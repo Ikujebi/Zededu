@@ -8,8 +8,12 @@ import parentRoutes from "./routes/parentRoutes";
 import paymentRoutes from "./routes/paymentRoutes";
 import authRoutes from "./routes/authRoutes";
 import classRoutes from "./routes/classRoutes";
-import subjectRoutes from "./routes/subjectRoutes"
-
+import subjectRoutes from "./routes/subjectRoutes";
+import feesRoutes from "./routes/feesRoutes";
+import adminRoutes from "./routes/adminRoutes";
+import examRoutes from "./routes/examRoutes";
+import receiptRoutes from "./routes/receiptRoutes";
+import assignmentRoutes from "./routes/assignmentRoutes";
 
 dotenv.config();
 
@@ -19,6 +23,7 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 
 app.use("/schools", schoolRoutes);
+app.use("/admin", adminRoutes);
 app.use("/students", studentRoutes);
 app.use("/teachers", teacherRoutes);
 app.use("/parents", parentRoutes);
@@ -26,6 +31,10 @@ app.use("/payments", paymentRoutes);
 app.use("/auth", authRoutes);
 app.use("/classes", classRoutes);
 app.use("/subjects", subjectRoutes);
+app.use("/fees", feesRoutes);
+app.use("/receipt", receiptRoutes);
+app.use("/assignment", assignmentRoutes);
+app.use("/exam", examRoutes);
 
 app.get("/", async (_req, res) => {
   try {

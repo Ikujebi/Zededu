@@ -1,30 +1,17 @@
-// src/routes/paymentRoute.ts
-import express from "express";
+import { Router } from "express";
+import { recordPayment, listPayments, getPaymentDetails, getStudentPayments, verifyPayment } from "../controllers/paymentController";
 import {
-  createPayment,
-  getPayments,
-  getPaymentById,
-  updatePayment,
-  deletePayment
-} from "../controllers/paymentController";
-import { authenticateUser } from "../middlewares/authMiddleware";
-import { paymentAuth } from "../middlewares/paymentAuth";
+  authenticateUser,
+  authorizeRoles,
+} from "../middlewares/authMiddleware";
 
-const router = express.Router();
 
-// Create payment → only admin
-router.post("/", authenticateUser, paymentAuth(["admin"]), createPayment);
+const router = Router();
 
-// Get all payments → only admin
-router.get("/", authenticateUser, paymentAuth(["admin"]), getPayments);
-
-// Get payment by ID → admin or parent
-router.get("/:id", authenticateUser, paymentAuth(["admin", "parent"]), getPaymentById);
-
-// Update payment → only admin
-router.put("/:id", authenticateUser, paymentAuth(["admin"]), updatePayment);
-
-// Delete payment → only admin
-router.delete("/:id", authenticateUser, paymentAuth(["admin"]), deletePayment);
+router.post("/payments",authenticateUser, recordPayment);
+router.get("/payments",authenticateUser, listPayments);
+router.get("/payments/:id",authenticateUser, getPaymentDetails);
+router.get("/payments/student/:id",authenticateUser, getStudentPayments);
+router.post("/payments/verify",authenticateUser, verifyPayment);
 
 export default router;
