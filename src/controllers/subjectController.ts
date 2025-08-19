@@ -1,8 +1,8 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 import { SubjectModel } from "../models/subjectModel";
 import { AuthRequest } from "../middlewares/authMiddleware";
 
-export const createSubject = async (req: Request, res: Response) => {
+export const createSubject = async (req: AuthRequest, res: Response) => {
   const { name } = req.body;
   const school_id = req.user?.school_id;
 
@@ -17,7 +17,7 @@ export const createSubject = async (req: Request, res: Response) => {
   }
 };
 
-export const getSubjects = async (req: Request, res: Response) => {
+export const getSubjects = async (req: AuthRequest, res: Response) => {
   const school_id = req.user?.school_id;
 
   if (!school_id) {
@@ -31,7 +31,7 @@ export const getSubjects = async (req: Request, res: Response) => {
   }
 };
 
-export const updateSubject = async (req: Request, res: Response) => {
+export const updateSubject = async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
   const { name } = req.body;
   const school_id = req.user?.school_id;
@@ -47,7 +47,7 @@ export const updateSubject = async (req: Request, res: Response) => {
   }
 };
 
-export const deleteSubject = async (req: Request, res: Response) => {
+export const deleteSubject = async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
   const school_id = req.user?.school_id;
 
