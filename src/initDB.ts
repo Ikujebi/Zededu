@@ -222,6 +222,42 @@ const createTables = async () => {
         UNIQUE(exam_id, student_id) -- prevent duplicate results
       );
     `);
+    // =========================
+    // VIDEO CLASSES TABLE
+    // =========================
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS video_classes (
+        id SERIAL PRIMARY KEY,
+        school_id INT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+        class_id INT REFERENCES classes(id) ON DELETE CASCADE,
+        created_by INT NOT NULL REFERENCES users(id) ON DELETE CASCADE, -- teacher/admin who scheduled
+        title VARCHAR(255) NOT NULL,
+        description TEXT,
+        provider VARCHAR(50) NOT NULL CHECK (provider IN ('zoom','google_meet','jitsi','other')),
+        meeting_url TEXT NOT NULL, -- actual join link
+        start_time TIMESTAMP NOT NULL,
+        end_time TIMESTAMP,
+        status VARCHAR(20) DEFAULT 'scheduled' CHECK (status IN ('scheduled','ongoing','completed','cancelled')),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // =========================
+    // VIDEO CLASS PARTICIPANTS TABLE (optional, for tracking attendance)
+    // =========================
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS video_class_participants (
+        id SERIAL PRIMARY KEY,
+        video_class_id INT NOT NULL REFERENCES video_classes(id) ON DELETE CASCADE,
+        user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        role VARCHAR(20) DEFAULT 'student' CHECK (role IN ('teacher','student','parent')),
+        join_link TEXT, -- personalized join link if provider supports
+        joined_at TIMESTAMP,
+        left_at TIMESTAMP,
+        UNIQUE(video_class_id, user_id) -- one participation per user per class
+      );
+    `);
 
     console.log("✅ Tables created successfully");
   } catch (err) {
