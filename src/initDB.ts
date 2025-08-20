@@ -259,6 +259,33 @@ const createTables = async () => {
       );
     `);
 
+      await pool.query(`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id SERIAL PRIMARY KEY,
+        recipient_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE, -- who receives it
+        sender_id INT REFERENCES users(id) ON DELETE SET NULL, -- who triggered it
+        type VARCHAR(50) NOT NULL, -- e.g. "exam", "assignment", "payment", "system"
+        title VARCHAR(255) NOT NULL,
+        message TEXT NOT NULL,
+        is_read BOOLEAN DEFAULT false,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // =========================
+    // MESSAGES TABLE (direct chat)
+    // =========================
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS messages (
+        id SERIAL PRIMARY KEY,
+        sender_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        receiver_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        content TEXT NOT NULL,
+        is_read BOOLEAN DEFAULT false,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
     console.log("✅ Tables created successfully");
   } catch (err) {
     console.error("❌ Error creating tables:", err);
