@@ -15,6 +15,7 @@ import examRoutes from "./routes/examRoutes";
 import receiptRoutes from "./routes/receiptRoutes";
 import assignmentRoutes from "./routes/assignmentRoutes";
 import videoRoutes from "./routes/videoRoutes";
+import analyticsReportRoutes from "./routes/analyticsReportRoutes";
 
 dotenv.config();
 
@@ -37,6 +38,7 @@ app.use("/receipt", receiptRoutes);
 app.use("/assignment", assignmentRoutes);
 app.use("/exam", examRoutes);
 app.use("/video", videoRoutes);
+app.use("/analyticsReport", analyticsReportRoutes);
 
 app.get("/", async (_req, res) => {
   try {

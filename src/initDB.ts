@@ -286,6 +286,20 @@ const createTables = async () => {
       );
     `);
 
+    // =========================
+// SETTINGS TABLE
+// =========================
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS settings (
+    id SERIAL PRIMARY KEY,
+    school_id INT REFERENCES schools(id) ON DELETE CASCADE, -- null for global settings
+    key VARCHAR(100) NOT NULL,
+    value TEXT,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(school_id, key) -- prevent duplicate settings per school
+  );
+`);
+
     console.log("✅ Tables created successfully");
   } catch (err) {
     console.error("❌ Error creating tables:", err);
